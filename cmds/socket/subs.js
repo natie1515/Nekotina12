@@ -33,7 +33,6 @@ function normalizePhone(input) {
 }
 
 export async function startSubBot(msg, client, caption = '', isCode = false, phone = '', chatId = '', isCommand = false) {
-  // PEQUEÑO RETARDO PARA EVITAR SOBRECARGA AL INICIAR
   await new Promise(resolve => setTimeout(resolve, 2000));
 
   const id = phone || (msg?.sender || '').split('@')[0];
@@ -45,7 +44,6 @@ export async function startSubBot(msg, client, caption = '', isCode = false, pho
   const msgLimit = 500;
   console.info = () => {};
 
-  // BLOQUE PROTECTOR PARA INICIALIZACIÓN
   let socks;
   try {
       socks = makeWASocket({
@@ -110,11 +108,16 @@ export async function startSubBot(msg, client, caption = '', isCode = false, pho
       bootTime = Date.now();
       botReady = true;
       socks.uptime = Date.now();
-      socks.userId = cleanJid(socks.user?.id?.split('@')[0]);
+      socks.userId = cleanJid(socks.user?.id?.split(':')[0]);
       const botDir = socks.userId + '@s.whatsapp.net';
-      const settings = global.db.data.settings[botDir] || {};
+      
+      // CORRECCIÓN DE SEGURIDAD PARA LA BASE DE DATOS
+      if (!global.db.data.settings) global.db.data.settings = {};
+      if (!global.db.data.settings[botDir]) global.db.data.settings[botDir] = { type: 'Sub' };
+      
+      const settings = global.db.data.settings[botDir];
       settings.type = 'Sub';
-      global.db.data.settings[botDir].type = settings.type;
+      
       const conss = global.conns.findIndex((c) => c.userId === socks.userId);
       if (conss !== -1) { global.conns[conss] = socks; } else { global.conns.push(socks); }
       delete reintentos[socks.userId || id];
@@ -222,3 +225,4 @@ export default {
     global.db.data.users[msg.sender].Subs = Date.now();
   },
 };
+
