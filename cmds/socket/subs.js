@@ -1,18 +1,13 @@
-import fs from 'fs';
-import path from 'path';
-import chalk from 'chalk';
-import { fileURLToPath, pathToFileURL } from 'url';
 import makeWASocket, { Browsers, makeCacheableSignalKeyStore, fetchLatestBaileysVersion, DisconnectReason, jidDecode, useMultiFileAuthState } from 'baileys';
 import NodeCache from 'node-cache';
 import main from '#main';
 import events from '#events';
 import qrcode from 'qrcode';
 import pino from 'pino';
+import fs from 'fs';
+import path from 'path';
+import chalk from 'chalk';
 import { smsg, patchGroupMetadata } from '#serialize';
-
-// Definición de __dirname para ES Modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 if (!global.conns) global.conns = [];
 let reintentos = {};
@@ -180,18 +175,14 @@ export default {
   command: ['code', 'qr'],
   category: 'socket',
   description: 'Gestionar bots subbots.',
-  run: async ({ msg, sock, args, command }) => {
-    // Definimos el __dirname aquí localmente para asegurar que siempre tenga un valor string
-    const currentDir = process.cwd();
-    
+  run: async ({ msg, sock, args, command, __dirname }) => {
     (global.db.data.users[msg.sender].Subs ??= 0);
     const user = global.db.data.users[msg.sender];
     if (Date.now() - user.Subs < 80000) {
       const remainingTime = (user.Subs + 80000) - Date.now();
       return sock.reply(msg.chat, `ꕥ Debes esperar *${msToTime(remainingTime)}* para volver a intentar vincular un socket.`, msg);
     }
-    
-    const subsPath = path.join(currentDir, 'Sessions/Subs');
+    const subsPath = path.join(__dirname, '../../Sessions/Subs');
     const allSubs = fs.existsSync(subsPath)
       ? fs.readdirSync(subsPath).filter((dir) => fs.existsSync(path.join(subsPath, dir, 'creds.json')))
       : [];
@@ -219,5 +210,3 @@ export default {
     global.db.data.users[msg.sender].Subs = Date.now();
   },
 };
-};
-
