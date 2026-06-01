@@ -6,7 +6,14 @@ const dbFile = path.join(process.cwd(), 'core', 'database.json')
 const isNumber = (x) => typeof x === 'number' && !isNaN(x)
 
 export function initDB(m, sock) {
-  const jid = sock.user.id.split(':')[0] + '@s.whatsapp.net'
+  // Aseguramos que la estructura global exista para evitar 'undefined'
+  global.db.data.settings ??= {}
+  global.db.data.users ??= {}
+  global.db.data.chats ??= {}
+
+  const jid = sock?.user?.id?.split(':')[0] + '@s.whatsapp.net'
+  
+  // Inicialización segura para settings
   const settings = global.db.data.settings[jid] ||= {}
   settings.self ??= false
   settings.prefix ??= ['/', '!', '.', '#']
@@ -21,6 +28,8 @@ export function initDB(m, sock) {
   settings.namebot ??= 'neko'
   settings.botname ??= 'Nekotina'
   settings.owner ??= ''
+
+  // Inicialización segura para usuarios
   const user = global.db.data.users[m.sender] ||= {}
   user.name ??= m.pushName
   user.exp = isNumber(user.exp) ? user.exp : 0
@@ -33,6 +42,8 @@ export function initDB(m, sock) {
   user.birth ??= ''
   user.metadatos ??= null
   user.metadatos2 ??= null
+
+  // Inicialización segura para chats
   const chat = global.db.data.chats[m.chat] ||= {}
   chat.users ||= {}
   chat.isBanned ??= false
@@ -83,9 +94,12 @@ global.loadDatabase = function loadDatabase() {
   global.db.READ = true
   if (fs.existsSync(dbFile)) {
     try {
-      const parsed = JSON.parse(fs.readFileSync(dbFile, 'utf8'))
-      global.db.data = Object.assign(global.db.data, parsed)
-    } catch {}
+      const content = fs.readFileSync(dbFile, 'utf8')
+      const parsed = JSON.parse(content || '{}')
+      global.db.data = _.merge(global.db.data, parsed)
+    } catch (e) {
+      console.error("Error cargando base de datos:", e)
+    }
   }
   global.db.chain = _.chain(global.db.data)
   global.db.READ = false
@@ -99,8 +113,12 @@ function hasPendingChanges() {
 
 global.saveDatabase = function saveDatabase() {
   if (!hasPendingChanges()) return
-  fs.writeFileSync(dbFile, JSON.stringify(global.db.data, null, 2))
-  global.db._snapshot = JSON.stringify(global.db.data)
+  try {
+    fs.writeFileSync(dbFile, JSON.stringify(global.db.data, null, 2))
+    global.db._snapshot = JSON.stringify(global.db.data)
+  } catch (e) {
+    console.error("Error guardando base de datos:", e)
+  }
 }
 
 let lastSave = Date.now()
