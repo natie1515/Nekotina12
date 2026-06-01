@@ -11,15 +11,15 @@ export function initDB(m, sock) {
   settings.self ??= false
   settings.prefix ??= ['/', '!', '.', '#']
   settings.commandsejecut ??= isNumber(settings.commandsejecut) ? settings.commandsejecut : 0
-  settings.newsletter_id ??= '120363401404146384@newsletter'
-  settings.nameid ??= 'ೃ࿔ ყµҡเ ωαɓσƭร - σƒƒเ૮เαℓ ૮ɦαɳɳεℓ .ೃ࿐'
+  settings.newsletter_id ??= '120363188537623366@newsletter'
+  settings.nameid ??= 'ೃ࿔ ɳεҡσƭเɳα ωαɓσƭร - σƒƒเ૮เαℓ ૮ɦαɳɳεℓ .ೃ'
   settings.type ??= 'Owner'
   settings.link ??= 'https://api.yuki-wabot.my.id'
-  settings.banner ??= 'https://cdn.yuki-wabot.my.id/files/tCVD.jpeg'
+  settings.banner ??= 'https://evogb.win/nekotina.jpeg'
   settings.icon ??= 'https://cdn.yuki-wabot.my.id/files/4U5V.jpeg'
   settings.currency ??= 'Yenes'
-  settings.namebot ??= 'Yuki'
-  settings.botname ??= 'Yuki Suou'
+  settings.namebot ??= 'neko'
+  settings.botname ??= 'Nekotina'
   settings.owner ??= ''
   const user = global.db.data.users[m.sender] ||= {}
   user.name ??= m.pushName
