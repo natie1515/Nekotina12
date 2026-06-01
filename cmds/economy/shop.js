@@ -9,9 +9,9 @@ export default {
     }    
     const botId = sock.user.id.split(':')[0] + '@s.whatsapp.net';
     const settings = global.db.data.settings[botId];
-    // CORRECCIÓN 1: Definición segura de moneda con valor por defecto
-    const currency = settings?.currency || 'Coins';
-    
+    // CORRECCIÓN: Definición segura de moneda
+    const currency = settings?.currency || 'Coins'; 
+
     (global.db.data.chats[msg.chat]?.users?.[msg.sender] && (global.db.data.chats[msg.chat].users[msg.sender].inventory ??= {}));
     (global.db.data.chats[msg.chat]?.users?.[msg.sender] && (global.db.data.chats[msg.chat].users[msg.sender].weapons ??= {}));
     (global.db.data.chats[msg.chat]?.users?.[msg.sender] && (global.db.data.chats[msg.chat].users[msg.sender].tools ??= {}));
@@ -29,7 +29,6 @@ export default {
     const armas = [{ id: 'espada', name: 'Espada', price: 8000, durability: 100, description: 'Para aventura', tipo: 'Combate' }, { id: 'hacha', name: 'Hacha', price: 7500, durability: 100, description: 'Para mazmorra', tipo: 'Combate' }, { id: 'arco', name: 'Arco', price: 7000, durability: 100, description: 'Para cazar', tipo: 'Combate' }];    
     const herramientas = [{ id: 'pico', name: 'Pico', price: 6500, durability: 100, description: 'Para minar', tipo: 'Equipo' }, { id: 'caña', name: 'Caña de pescar', price: 6000, durability: 100, description: 'Para pescar', tipo: 'Equipo' }, { id: 'totem', name: 'Totem', price: 4000, durability: 3, description: 'Para ritual', tipo: 'Consumible' }, { id: 'pocion', name: 'Pocion', price: 1500, durability: 1, description: 'Restaura magia', tipo: 'Consumible' }];
     const commandType = command.toLowerCase();
-    
     if (commandType === 'inventory' || commandType === 'inv' || commandType === 'inventario') {
       const userName = users?.name || msg.pushName || 'Usuario';
       let invMessage = `*「✿」Inventario* ◢ ${userName} ◤\n`;
@@ -78,12 +77,13 @@ export default {
       await sock.sendMessage(msg.chat, { text: invMessage }, { quoted: msg });
       return;
     }
-    
     if (commandType === 'shop' || commandType === 'tienda') {
       try {
         const armasDisponibles = armas.filter(item => !user.weapons?.[item.id]);
         const herramientasDisponibles = herramientas.filter(item => {
-          if (item.id === 'totem' || item.id === 'pocion') return true;
+          if (item.id === 'totem' || item.id === 'pocion') {
+            return true;
+          }
           return !user.tools?.[item.id];
         });
         const itemsDisponibles = [...armasDisponibles, ...herramientasDisponibles];
@@ -104,22 +104,32 @@ export default {
             const magiaActual = user.magic || 0;
             const magiaFaltante = 100 - magiaActual;
             const efecto = magiaFaltante > 0 ? Math.min(magiaFaltante, 100) : 0;
-            descripcion = efecto === 0 ? 'Poción mágica' : `Restaura ${efecto} puntos de magia (${efecto}/100)`;
+            if (efecto === 0) {
+              descripcion = 'Poción mágica';
+            } else {
+              descripcion = `Restaura ${efecto} puntos de magia (${efecto}/100)`;
+            }
           }
-          const durabilidadText = item.tipo === 'Consumible' ? `ⴵ Usos » *${item.durability}*` : `ⴵ Durabilidad » *${item.durability}*`;
+          let durabilidadText = '';
+          if (item.tipo === 'Consumible') {
+            durabilidadText = `ⴵ Usos » *${item.durability}*`;
+          } else {
+            durabilidadText = `ⴵ Durabilidad » *${item.durability}*`;
+          }
           listado.push(`❀ *${item.name}* (${item.tipo}):\n> ⛁ Precio » *¥${item.price.toLocaleString()} ${currency}*\n> ❖ Descripcion » *${descripcion}*\n> ${durabilidadText}`);
         }
-        msg.reply(`*☆ Item Shop \`≧◠ᴥ◠≦\`*\n❏ Objetos disponibles <${itemsDisponibles.length}>:\n\n` + listado.join('\n\n') + `\n\n> • Paginá *${page}* de *${totalPaginas}*`);
+        const mensaje = `*☆ Item Shop \`≧◠ᴥ◠≦\`*\n❏ Objetos disponibles <${itemsDisponibles.length}>:\n\n` + listado.join('\n\n') + `\n\n> • Paginá *${page}* de *${totalPaginas}*`;
+        msg.reply(mensaje);
       } catch (e) {
-        await msg.reply(`> Error en *${usedPrefix + command}*.\n> [Error: *${e.message}*]`);
+        await msg.reply(`> An unexpected error occurred while executing command *${usedPrefix + command}*.\n> [Error: *${e.message}*]`);
       }
       return;
     }
-    
     if (commandType === 'buy' || commandType === 'comprar') {
       const itemArg = args[0];
-      if (!itemArg) return msg.reply(`ꕥ Especifica qué quieres comprar.\n> ✐ Ejemplo: *${usedPrefix}buy* espada\n> ✐ Ver tienda: *${usedPrefix}shop*`);
-      
+      if (!itemArg) {
+        return msg.reply(`ꕥ Especifica qué quieres comprar.\n> ✐ Ejemplo: *${usedPrefix}buy* espada\n> ✐ Ver tienda: *${usedPrefix}shop*`);
+      }
       if (itemArg.toLowerCase() === 'all') {
         let totalCosto = 0;
         const itemsAComprar = [];
@@ -127,31 +137,129 @@ export default {
         for (const item of allItems) {
           const categoria = armas.some(a => a.id === item.id) ? 'arma' : 'herramienta';
           let puedeComprar = true;
-          if (categoria === 'arma' && user.weapons?.[item.id]) puedeComprar = false;
-          else if (categoria === 'herramienta' && item.id !== 'totem' && item.id !== 'pocion' && user.tools?.[item.id]) puedeComprar = false;
-          
+          if (categoria === 'arma') {
+            if (user.weapons?.[item.id]) puedeComprar = false;
+          } else if (categoria === 'herramienta' && item.id !== 'totem' && item.id !== 'pocion') {
+            if (user.tools?.[item.id]) puedeComprar = false;
+          }
           if (puedeComprar) {
             itemsAComprar.push(item);
             totalCosto += item.price;
           }
         }
-        if (itemsAComprar.length === 0) return msg.reply(`ꕥ Ya tienes todos los items disponibles.`);
-        if ((user.coins || 0) < totalCosto) return msg.reply(`ꕥ No tienes suficientes ${currency}.\n⛁ Necesitas: *¥${totalCosto.toLocaleString()}*\n⛁ Tienes: *¥${(user.coins || 0).toLocaleString()}*`);
-        
+        if (itemsAComprar.length === 0) {
+          return msg.reply(`ꕥ Ya tienes todos los items disponibles.`);
+        }
+        if ((user.coins || 0) < totalCosto) {
+          return msg.reply(`ꕥ No tienes suficientes ${currency} para comprar todo.\n⛁ Necesitas: *¥${totalCosto.toLocaleString()}*\n⛁ Tienes: *¥${(user.coins || 0).toLocaleString()}*`);
+        }
         for (const item of itemsAComprar) {
           const categoria = armas.some(a => a.id === item.id) ? 'arma' : 'herramienta';
-          if (categoria === 'arma') user.weapons[item.id] = { durability: item.durability, maxDurability: item.durability };
-          else if (categoria === 'herramienta') {
-            if (item.id === 'totem' || item.id === 'pocion') user.inventory[item.id] = (user.inventory[item.id] || 0) + 1;
-            else user.tools[item.id] = { durability: item.durability, maxDurability: item.durability };
+          if (categoria === 'arma') {
+            user.weapons[item.id] = { durability: item.durability, maxDurability: item.durability };
+          } else if (categoria === 'herramienta') {
+            if (item.id === 'totem' || item.id === 'pocion') {
+              user.inventory[item.id] = (user.inventory[item.id] || 0) + 1;
+            } else {
+              user.tools[item.id] = { durability: item.durability, maxDurability: item.durability };
+            }
           }
         }
-        // CORRECCIÓN 2: Cálculo de monedas correcto
-        global.db.data.chats[msg.chat].users[msg.sender].coins = (user.coins || 0) - totalCosto;
-        return msg.reply(`ꕥ Has comprado todos los items disponibles (${itemsAComprar.length} items) por *¥${totalCosto.toLocaleString()} ${currency}*`);
+        global.db.data.chats[msg.chat].users[msg.sender].weapons = user.weapons;
+        global.db.data.chats[msg.chat].users[msg.sender].tools = user.tools;
+        global.db.data.chats[msg.chat].users[msg.sender].inventory = user.inventory;
+        // CORRECCIÓN: Paréntesis corregido para restar correctamente
+        global.db.data.chats[msg.chat].users[msg.sender].coins = (user.coins || 0) - totalCosto; 
+        return msg.reply(`ꕥ Has comprado todos los items disponibles (${itemsAComprar.length} items) por *¥${totalCosto.toLocaleString()} ${currency}*.`);
       }
-      
-      // ... (Resto de tu lógica de compra individual sigue igual)
+      const itemsInput = args.join(' ').split(',').map(item => item.trim().toLowerCase());
+      const itemsToBuy = [];
+      const itemsNoEncontrados = [];
+      const itemsYaTiene = [];
+      for (const itemInput of itemsInput) {
+        let item = null;
+        let categoria = null;
+        item = armas.find(i => i.id === itemInput);
+        if (item) categoria = 'arma';
+        if (!item) {
+          item = herramientas.find(i => i.id === itemInput);
+          if (item) categoria = 'herramienta';
+        }
+        if (!item) {
+          const allItems = [...armas, ...herramientas];
+          const num = parseInt(itemInput);
+          if (num >= 1 && num <= allItems.length) {
+            item = allItems[num - 1];
+            categoria = armas.some(a => a.id === item.id) ? 'arma' : 'herramienta';
+          }
+        }
+        if (!item) {
+          itemsNoEncontrados.push(itemInput);
+          continue;
+        }
+        if (categoria === 'arma') {
+          if (user.weapons?.[item.id]) {
+            itemsYaTiene.push(item.name);
+            continue;
+          }
+        } else if (categoria === 'herramienta' && item.id !== 'totem' && item.id !== 'pocion') {
+          if (user.tools?.[item.id]) {
+            itemsYaTiene.push(item.name);
+            continue;
+          }
+        }
+        itemsToBuy.push({ item, categoria });
+      }
+      if (itemsToBuy.length === 0) {
+        let mensajeError = `ꕥ No se pudo comprar ningún item.`;
+        if (itemsNoEncontrados.length > 0) {
+          mensajeError += `\n> Items no encontrados: *${itemsNoEncontrados.join(', ')}*`;
+        }
+        if (itemsYaTiene.length > 0) {
+          mensajeError += `\n> Ya tienes: *${itemsYaTiene.join(', ')}*`;
+        }
+        return msg.reply(mensajeError);
+      }
+      let costoTotal = 0;
+      for (const { item } of itemsToBuy) {
+        costoTotal += item.price;
+      }
+      if ((user.coins || 0) < costoTotal) {
+        return msg.reply(`ꕥ No tienes suficientes ${currency}.\n⛁ Necesitas: *¥${costoTotal.toLocaleString()}*\n⛁ Tienes: *¥${(user.coins || 0).toLocaleString()}*`);
+      }
+      const itemsComprados = [];
+      for (const { item, categoria } of itemsToBuy) {
+        if (categoria === 'arma') {
+          user.weapons[item.id] = { durability: item.durability, maxDurability: item.durability };
+          itemsComprados.push(item.name);
+        } else if (categoria === 'herramienta') {
+          if (item.id === 'totem' || item.id === 'pocion') {
+            user.inventory[item.id] = (user.inventory[item.id] || 0) + 1;
+            itemsComprados.push(item.name);
+          } else {
+            user.tools[item.id] = { durability: item.durability, maxDurability: item.durability };
+            itemsComprados.push(item.name);
+          }
+        }
+      }
+      global.db.data.chats[msg.chat].users[msg.sender].weapons = user.weapons;
+      global.db.data.chats[msg.chat].users[msg.sender].tools = user.tools;
+      global.db.data.chats[msg.chat].users[msg.sender].inventory = user.inventory;
+      // CORRECCIÓN: Paréntesis corregido para restar correctamente
+      global.db.data.chats[msg.chat].users[msg.sender].coins = (user.coins || 0) - costoTotal;     
+      let mensajeFinal = `ꕥ Compra exitosa:\n`;
+      mensajeFinal += `> Items: *${itemsComprados.join(', ')}*\n`;
+      mensajeFinal += `> Total: *¥${costoTotal.toLocaleString()} ${currency}*`;
+      if (itemsNoEncontrados.length > 0 || itemsYaTiene.length > 0) {
+        mensajeFinal += `\n\n> Notas:`;
+        if (itemsNoEncontrados.length > 0) {
+          mensajeFinal += `\n> • Items no encontrados: *${itemsNoEncontrados.join(', ')}*`;
+        }
+        if (itemsYaTiene.length > 0) {
+          mensajeFinal += `\n> • Ya tienes: *${itemsYaTiene.join(', ')}*`;
+        }
+      }
+      return msg.reply(mensajeFinal);
     }
   }
 };
