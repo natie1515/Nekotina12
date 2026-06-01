@@ -2,9 +2,9 @@ import { watchFile, unwatchFile } from "fs";
 import chalk from "chalk";
 import { fileURLToPath } from "url";
 
-global.owner = ['573196588149'];
+global.owner = ['559296077249'];
 
-global.dev = "© ⍴᥆ᥕᥱrᥱძ ᑲᥡ ⁱᵃᵐ|𝔇ĕ𝐬†𝓻⊙γ𒆜";
+global.dev = "© ⍴᥆ᥕᥱrᥱძ ᑲᥡ ⁿᵏGwee⚝";
 global.links = {
   api: 'https://api.yuki-wabot.my.id',
   channel: "https://whatsapp.com/channel/0029Vb64nWqLo4hb8cuxe23n",
@@ -12,7 +12,7 @@ global.links = {
   gmail: "thekingdestroy507@gmail.com"
 }
 global.my = {
-  ch1: '120363401404146384@newsletter'
+  ch1: '120363188537623366@newsletter'
 };
 
 global.APIs = { 
