@@ -1,3 +1,5 @@
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 import makeWASocket, { Browsers, makeCacheableSignalKeyStore, fetchLatestBaileysVersion, DisconnectReason, jidDecode, useMultiFileAuthState } from 'baileys';
 import NodeCache from 'node-cache';
 import main from '#main';
@@ -8,6 +10,10 @@ import fs from 'fs';
 import path from 'path';
 import chalk from 'chalk';
 import { smsg, patchGroupMetadata } from '#serialize';
+
+// Definición de __dirname para ES Modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 if (!global.conns) global.conns = [];
 let reintentos = {};
@@ -210,3 +216,4 @@ export default {
     global.db.data.users[msg.sender].Subs = Date.now();
   },
 };
+
