@@ -31,7 +31,7 @@ export default {
       const prefix = botSettings.prefix;
       const link = botSettings.link || global.links?.api?.channel || '';
       const isOficialBot = botId === (global.sock.user.id.split(':')[0] + '@s.whatsapp.net');
-    const botType = isOficialBot ? 'Principal/Owner' : 'Sub Bot';
+    const botType = isOficialBot ? 'Principal 🅥' : 'SubBot 🅑';
       const users = Object.values(global.db.data.users);
       const usersCount = users?.length || 0;
       const device = getDevice(msg.key.id);
