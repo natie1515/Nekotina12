@@ -7,37 +7,47 @@ export default {
     if (chat.adminonly || !chat.economy) {
       return msg.reply(`ꕥ Los comandos de *Economía* están desactivados en este grupo.\n\nUn *administrador* puede activarlos con el comando:\n» *${usedPrefix}economy on*`);
     }
+    
     const botId = sock.user.id.split(':')[0] + '@s.whatsapp.net';
     const monedas = (global.db.data.settings[botId]).currency;
-    (global.db.data.chats[msg.chat]?.users?.[msg.sender] && (global.db.data.chats[msg.chat].users[msg.sender].lastcrime ??= 0));   
-    const user = global.db.data.chats[msg.chat]?.users?.[msg.sender];
+    
+    // Asegurar estructura
+    global.db.data.chats[msg.chat].users[msg.sender] ??= { coins: 0, bank: 0, lastcrime: 0 };
+    const user = global.db.data.chats[msg.chat].users[msg.sender];
+    
     const remainingTime = user.lastcrime - Date.now();
     if (remainingTime > 0) {
       return msg.reply(`ꕥ Debes esperar *${msToTime(remainingTime)}* antes de intentar nuevamente.`);
     }
+    
     const éxito = Math.random() < 0.4;
     let cantidad;
+    
     if (éxito) {
       cantidad = Math.floor(Math.random() * (7500 - 5500 + 1)) + 5500;
-      global.db.data.chats[msg.chat].users[msg.sender].coins = (user.coins || 0 + cantidad);
+      user.coins = (user.coins || 0) + cantidad;
     } else {
       cantidad = Math.floor(Math.random() * (6000 - 4000 + 1)) + 4000;
       const total = (user.coins || 0) + (user.bank || 0);
+      
       if (total >= cantidad) {
         if (user.coins >= cantidad) {
-          global.db.data.chats[msg.chat].users[msg.sender].coins = (user.coins || 0 - cantidad);
+          user.coins = (user.coins || 0) - cantidad;
         } else {
           const restante = cantidad - (user.coins || 0);
-          global.db.data.chats[msg.chat].users[msg.sender].coins = 0;
-          global.db.data.chats[msg.chat].users[msg.sender].bank = (user.bank || 0 - restante);
+          user.coins = 0;
+          user.bank = (user.bank || 0) - restante;
         }
       } else {
         cantidad = total;
-        global.db.data.chats[msg.chat].users[msg.sender].coins = 0;
-        global.db.data.chats[msg.chat].users[msg.sender].bank = 0;
+        user.coins = 0;
+        user.bank = 0;
       }
     }        
-    global.db.data.chats[msg.chat].users[msg.sender].lastcrime = Date.now( + 7 * 60 * 1000);
+    
+    // CORRECCIÓN: Tiempo de espera arreglado
+    user.lastcrime = Date.now() + (7 * 60 * 1000);
+    
     const successMessages = [
       `Hackeaste un cajero automático usando un exploit del sistema y retiraste efectivo sin alertas, ganaste *¥${cantidad.toLocaleString()} ${monedas}*!`,
       `Te infiltraste como técnico en una mansión y robaste joyas mientras inspeccionabas la red, ganaste *¥${cantidad.toLocaleString()} ${monedas}*!`,
