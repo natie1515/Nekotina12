@@ -1,69 +1,79 @@
 import { delay } from 'baileys';
 
-let buatall = 1;
 export default {
   command: ['apostar', 'casino'],
   category: 'economy',
   description: 'Apostar coins en el casino.',
   run: async ({ msg, sock, args, usedPrefix, command, text }) => {
-    const chatData = global.db.data.chats[msg.chat]
+    const chatData = global.db.data.chats[msg.chat];
     if (chatData.adminonly || !chatData.economy) {
       return msg.reply(`ꕥ Los comandos de *Economía* están desactivados en este grupo.\n\nUn *administrador* puede activarlos con el comando:\n» *${usedPrefix}economy on*`);
     }        
+
     const botId = sock.user.id.split(':')[0] + '@s.whatsapp.net';
     const bot = global.db.data.settings[botId];
     const currency = bot.currency;
     const botname = bot.botname;    
-    (global.db.data.chats[msg.chat]?.users?.[msg.sender] && (global.db.data.chats[msg.chat].users[msg.sender].lastApuesta ??= 0));
-    const user = global.db.data.chats[msg.chat]?.users?.[msg.sender];    
-    let Aku = Math.floor(Math.random() * 101);
-    let Kamu = Math.floor(Math.random() * 55);
-    let count = args[0];
-    const users = global.db.data.users[msg.sender];
-    const userName = users?.name || msg.sender.split('@')[0];
+
+    // Asegurar estructura del usuario en el chat
+    global.db.data.chats[msg.chat].users[msg.sender] ??= { coins: 0, lastApuesta: 0 };
+    const user = global.db.data.chats[msg.chat].users[msg.sender];
+    
+    const userName = msg.pushName || msg.sender.split('@')[0];
     const tiempoEspera = 30 * 1000;
     const ahora = Date.now();        
+
     if (user.lastApuesta && ahora - user.lastApuesta < tiempoEspera) {
       const restante = user.lastApuesta + tiempoEspera - ahora;
-      const tiempoRestante = formatTime(restante);
-      return sock.reply(msg.chat, `ꕥ Debes esperar *${tiempoRestante}* para usar *${usedPrefix + command}* nuevamente.`, msg);
+      return sock.reply(msg.chat, `ꕥ Debes esperar *${formatTime(restante)}* para usar *${usedPrefix + command}* nuevamente.`, msg);
     }        
-    global.db.data.chats[msg.chat].users[msg.sender].lastApuesta = ahora;
-    if (count && /all/i.test(count)) {
-      count = Math.floor(users.limit / buatall);
-    } else if (args[0]) {
-      count = parseInt(args[0]);
-    } else {
-      count = 1;
-    }        
-    count = Math.max(1, count);
-    if (args.length < 1) {
+
+    let count = args[0];
+    if (!count) {
       return sock.reply(msg.chat, `❀ Ingresa la cantidad de *${currency}* que deseas aportar contra *${botname}*\n> Ejemplo: *${usedPrefix + command} 100*`, msg);
     }
-    if (user.coins >= count) {
-      global.db.data.chats[msg.chat].users[msg.sender].coins = user.coins - count;
-      let resultado = '';
-      let ganancia = 0;
-      if (Aku > Kamu) {
-        resultado = `> ${userName}, *Perdiste ¥${formatNumber(count)} ${currency}*.`;
-      } else if (Aku < Kamu) {
-        ganancia = count * 2;
-        global.db.data.chats[msg.chat].users[msg.sender].coins = (user.coins - count + ganancia);
-        resultado = `> ${userName}, *Ganaste ¥${formatNumber(ganancia)} ${currency}*.`;
-      } else {
-        ganancia = count;
-        global.db.data.chats[msg.chat].users[msg.sender].coins = (user.coins - count + ganancia);
-        resultado = `> ${userName}, *Ganaste ¥${formatNumber(ganancia)} ${currency}*.`;
-      }
-      let { key } = await sock.sendMessage(msg.chat, { text: "🎲 El crupier lanza los dados... ¡Las apuestas están cerradas!" }, { quoted: msg });
-      await delay(2000);
-      await sock.sendMessage(msg.chat, { text: "❀ Los números están girando... ¡Prepárate para el resultado!", edit: key }, { quoted: msg });
-      await delay(2000);
-      const replyMsg = `❀ \`Veamos qué números tienen!\`\n\n➠ *${botname}* : ${Aku}\n➠ *${userName}* : ${Kamu}\n\n${resultado}`;
-      await sock.sendMessage(msg.chat, { text: replyMsg.trim(), edit: key }, { quoted: msg });
+
+    if (/all/i.test(count)) {
+      count = user.coins;
     } else {
-      sock.reply(msg.chat, `ꕥ No tienes *¥${formatNumber(count)} ${currency}* para apostar!`, msg);
+      count = parseInt(count);
     }
+
+    if (isNaN(count) || count < 1) {
+      return sock.reply(msg.chat, `ꕥ Ingresa una cantidad válida para apostar.`, msg);
+    }
+
+    if (user.coins < count) {
+      return sock.reply(msg.chat, `ꕥ No tienes *¥${formatNumber(count)} ${currency}* para apostar!`, msg);
+    }
+
+    // Procesar apuesta
+    user.lastApuesta = ahora;
+    user.coins -= count; // Restamos la apuesta inicial
+
+    let Aku = Math.floor(Math.random() * 101);
+    let Kamu = Math.floor(Math.random() * 101);
+    let resultado = '';
+    let ganancia = 0;
+
+    if (Aku > Kamu) {
+      resultado = `> ${userName}, *Perdiste ¥${formatNumber(count)} ${currency}*.`;
+    } else if (Aku < Kamu) {
+      ganancia = count * 2;
+      user.coins += ganancia;
+      resultado = `> ${userName}, *Ganaste ¥${formatNumber(ganancia)} ${currency}*.`;
+    } else {
+      user.coins += count; // Empate, devolvemos lo apostado
+      resultado = `> ${userName}, *Empate. Recuperaste tus ¥${formatNumber(count)} ${currency}*.`;
+    }
+
+    let { key } = await sock.sendMessage(msg.chat, { text: "🎲 El crupier lanza los dados... ¡Las apuestas están cerradas!" }, { quoted: msg });
+    await delay(2000);
+    await sock.sendMessage(msg.chat, { text: "❀ Los números están girando... ¡Prepárate para el resultado!", edit: key }, { quoted: msg });
+    await delay(2000);
+    
+    const replyMsg = `❀ \`Veamos qué números tienen!\`\n\n➠ *${botname}* : ${Aku}\n➠ *${userName}* : ${Kamu}\n\n${resultado}`;
+    await sock.sendMessage(msg.chat, { text: replyMsg.trim(), edit: key }, { quoted: msg });
   }
 };
 
