@@ -7,20 +7,41 @@ export default {
     if (chat.adminonly || !chat.economy) {
       return msg.reply(`ꕥ Los comandos de *Economía* están desactivados en este grupo.\n\nUn *administrador* puede activarlos con el comando:\n» *${usedPrefix}economy on*`);
     }
+
     const botId = sock.user.id.split(':')[0] + '@s.whatsapp.net';
     const settings = global.db.data.settings[botId];
     const monedas = settings.currency;
-    (global.db.data.chats[msg.chat]?.users?.[msg.sender] && (global.db.data.chats[msg.chat].users[msg.sender].lastwork ??= 0));
+
+    (global.db.data.chats[msg.chat]?.users?.[msg.sender] &&
+      (global.db.data.chats[msg.chat].users[msg.sender].lastwork ??= 0));
+
     const user = global.db.data.chats[msg.chat]?.users?.[msg.sender];
     const cooldown = 3 * 60 * 1000;
+
     if (Date.now() < user.lastwork) {
       const tiempoRestante = formatTime(user.lastwork - Date.now());
-      return sock.reply(msg.chat, `ꕥ Debes esperar *${tiempoRestante}* para usar *${usedPrefix + command}* de nuevo.`, msg);
+      return sock.reply(
+        msg.chat,
+        `ꕥ Debes esperar *${tiempoRestante}* para usar *${usedPrefix + command}* de nuevo.`,
+        msg
+      );
     }
+
     const rsl = Math.floor(Math.random() * (4000 - 2000 + 1)) + 2000;
-    global.db.data.chats[msg.chat].users[msg.sender].lastwork = Date.now( + cooldown);
-    global.db.data.chats[msg.chat].users[msg.sender].coins = (user.coins || 0 + rsl);    
-    await sock.sendMessage(msg.chat, { text: `❀ ${pickRandom(trabajo)} *¥${rsl.toLocaleString()} ${monedas}*.` }, { quoted: msg });
+
+    // CORREGIDO
+    global.db.data.chats[msg.chat].users[msg.sender].lastwork = Date.now() + cooldown;
+
+    // CORREGIDO
+    global.db.data.chats[msg.chat].users[msg.sender].coins = (user.coins || 0) + rsl;
+
+    await sock.sendMessage(
+      msg.chat,
+      {
+        text: `❀ ${pickRandom(trabajo)} *¥${rsl.toLocaleString()} ${monedas}*.`
+      },
+      { quoted: msg }
+    );
   }
 };
 
@@ -28,9 +49,15 @@ function formatTime(ms) {
   const totalSec = Math.ceil(ms / 1000);
   const minutes = Math.floor((totalSec % 3600) / 60);
   const seconds = totalSec % 60;
+
   const parts = [];
-  if (minutes > 0) parts.push(`${minutes} minuto${minutes !== 1 ? 's' : ''}`);
+
+  if (minutes > 0) {
+    parts.push(`${minutes} minuto${minutes !== 1 ? 's' : ''}`);
+  }
+
   parts.push(`${seconds} segundo${seconds !== 1 ? 's' : ''}`);
+
   return parts.join(' ');
 }
 
