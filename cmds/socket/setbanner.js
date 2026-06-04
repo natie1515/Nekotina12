@@ -1,22 +1,17 @@
 import fetch from 'node-fetch';
 
-async function uploadImage(buffer, mime) {
-  const base64Data = buffer.toString('base64');
-  const extension = mime.split('/')[1] || 'jpg';
-  
+async function uploadDix(fileBuffer, mime) {
+  const formData = new FormData()
+  formData.append('file', new Blob([fileBuffer], { type: mime }), 'upload.' + mime.split('/')[1])
+
   const res = await fetch('https://cdn.dix.lat/upload', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      filename: `upload.${extension}`,
-      data: base64Data,
-      expiration: 'never'
-    })
-  });
-  
-  const json = await res.json();
-  if (json?.url) return json.url;
-  throw new Error('Upload failed');
+    body: formData
+  })
+
+  const data = await res.json()
+  if (!data?.data?.url) throw new Error('No se pudo obtener URL de subida')
+  return data.data.url
 }
 
 export default {
@@ -43,7 +38,7 @@ export default {
     }
     const media = await q.download()
     if (!media) return msg.reply('✎ No se pudo descargar la imagen.')
-    const link = await uploadImage(media, mime)
+    const link = await uploadDix(media, mime)
     global.db.data.settings[idBot].banner = link
     return msg.reply(`✿ Se ha actualizado el banner de *${config.namebot || 'Bot'}*!`)
   }
