@@ -10,20 +10,26 @@ export default {
     const botId = sock.user.id.split(':')[0] + '@s.whatsapp.net';
     const bot = global.db.data.settings[botId];
     const currency = bot.currency;
-    (global.db.data.chats[msg.chat]?.users?.[msg.sender] && (global.db.data.chats[msg.chat].users[msg.sender].lastcoffer ??= 0));
-    const user = global.db.data.chats[msg.chat]?.users?.[msg.sender];
+    
+    // Asegurar estructura
+    global.db.data.chats[msg.chat].users[msg.sender] ??= { coins: 0, lastcoffer: 0 };
+    const user = global.db.data.chats[msg.chat].users[msg.sender];
+    
     const now = Date.now();
     const gap = 24 * 60 * 60 * 1000;
+    
     if (now < user.lastcoffer) {
       const restante = user.lastcoffer - now;
       return msg.reply(`ꕥ Debes esperar *${msToTime(restante)}* para volver a abrir un cofre.`);
     }
+    
     const rand = Math.random();
     let reward = 0;
     let message = "";
+    
     if (rand < 0.5) {
       reward = 25000;
-      global.db.data.chats[msg.chat].users[msg.sender].coins = (user.coins || 0 + reward);
+      user.coins = (user.coins || 0) + reward; // CORREGIDO
       const normalMessages = [
         `「✿」 Has abierto un cofre normal y recibiste *¥${reward.toLocaleString()} ${currency}*.`,
         `「✿」 El cofre común contenía monedas brillantes, ganaste *¥${reward.toLocaleString()} ${currency}*.`,
@@ -36,7 +42,7 @@ export default {
       message = pickRandom(normalMessages);
     } else if (rand < 0.8) {
       reward = 40000;
-      global.db.data.chats[msg.chat].users[msg.sender].coins = (user.coins || 0 + reward);
+      user.coins = (user.coins || 0) + reward; // CORREGIDO
       const legendaryMessages = [
         `「✿」 ¡Increíble! Abriste un cofre legendario y recibiste *¥${reward.toLocaleString()} ${currency}*.`,
         `「✿」 El cofre legendario brillaba con luz dorada, dentro había *¥${reward.toLocaleString()} ${currency}*.`,
@@ -61,7 +67,8 @@ export default {
       ];
       message = pickRandom(emptyMessages);
     }
-    global.db.data.chats[msg.chat].users[msg.sender].lastcoffer = now + gap;
+    
+    user.lastcoffer = now + gap;
     msg.reply(message);
   }
 };
