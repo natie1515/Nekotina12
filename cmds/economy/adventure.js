@@ -10,22 +10,32 @@ export default {
     const botId = sock.user.id.split(':')[0] + '@s.whatsapp.net';
     const settings = global.db.data.settings[botId];
     const currency = settings.currency;
-    (global.db.data.chats[msg.chat]?.users?.[msg.sender] && (global.db.data.chats[msg.chat].users[msg.sender].weapons ??= {}));
-    (global.db.data.chats[msg.chat]?.users?.[msg.sender] && (global.db.data.chats[msg.chat].users[msg.sender].lastadventure ??= 0));    
-    let user = global.db.data.chats[msg.chat]?.users?.[msg.sender];
-    if (user.weapons && typeof user.weapons === 'string') {
+
+    // Asegurar estructura inicial
+    global.db.data.chats[msg.chat].users[msg.sender] ??= {};
+    let user = global.db.data.chats[msg.chat].users[msg.sender];
+    user.weapons ??= {};
+    user.lastadventure ??= 0;
+    user.coins ??= 0;
+    user.bank ??= 0;
+    user.health ??= 100;
+    user.stamina ??= 100;
+    user.magic ??= 100;
+
+    if (typeof user.weapons === 'string') {
       try { user.weapons = JSON.parse(user.weapons); } catch { user.weapons = {}; }
     }
+
     const staminaConsumed = Math.floor(Math.random() * (5 - 1 + 1)) + 1;
     if (user.stamina < staminaConsumed) {
       return msg.reply(`ꕥ No tienes suficiente stamina para salir de aventura.\n> Usa *${usedPrefix}heal* para curarte.`);
     }    
+
     let usingMagic = false;
     let usingWeapon = false;    
     if (user.weapons?.espada) {
       if (user.weapons.espada.durability <= 10) {
         delete user.weapons.espada;
-        global.db.data.chats[msg.chat].users[msg.sender].weapons = user.weapons;
         return msg.reply(`ꕥ Tu Espada se ha roto por el uso y ha sido eliminada de tu inventario.\n> Compra una nueva con: *${usedPrefix}buy espada*`);
       }
       usingWeapon = true;
@@ -36,36 +46,34 @@ export default {
       }
       usingMagic = true;
       user.magic -= magicConsumed;
-      global.db.data.chats[msg.chat].users[msg.sender].magic = user.magic;
     }    
+
     if (user.health < 5) {
       return msg.reply(`ꕥ No tienes suficiente salud para volver a *aventurarte*.\n> Usa *${usedPrefix}heal* para curarte.`);
     }    
+
     const remainingTime = user.lastadventure - Date.now();
     if (remainingTime > 0) {
       return sock.reply(msg.chat, `ꕥ Debes esperar *${msToTime(remainingTime)}* para usar *${usedPrefix + command}* de nuevo.`, msg);
     }    
+
     user.stamina -= staminaConsumed;
-    global.db.data.chats[msg.chat].users[msg.sender].stamina = user.stamina;    
+    
     const rand = Math.random();
     let cantidad = 0;
     let salud = Math.floor(Math.random() * (20 - 1 + 1)) + 1;
     let durabilityConsumed = Math.floor(Math.random() * (15 - 1 + 1)) + 1;
     let message;    
+
     if (rand < 0.4) {
       if (usingWeapon) {
         user.weapons.espada.durability -= durabilityConsumed;
-        if (user.weapons.espada.durability <= 10) {
-          delete user.weapons.espada;
-        }
-        global.db.data.chats[msg.chat].users[msg.sender].weapons = user.weapons;
+        if (user.weapons.espada.durability <= 10) delete user.weapons.espada;
       }
       cantidad = Math.floor(Math.random() * (18000 - 14000 + 1)) + 14000;
       user.coins += cantidad;
       user.health -= salud;
-      global.db.data.chats[msg.chat].users[msg.sender].coins = user.coins;
-      global.db.data.chats[msg.chat].users[msg.sender].health = user.health;      
-      const successMessages = [
+      message = pickRandom([
         `Derrotaste a un ogro emboscado entre los árboles de Drakonia, ganaste *¥${cantidad.toLocaleString()} ${currency}*.`,
         `Te conviertes en campeón del torneo de gladiadores de Valoria, ganaste *¥${cantidad.toLocaleString()} ${currency}*.`,
         `Rescatas un libro mágico del altar de los Susurros, ganaste *¥${cantidad.toLocaleString()} ${currency}*.`,
@@ -76,40 +84,30 @@ export default {
         `Conquistas la fortaleza maldita de las Sombras Rojas sin sufrir bajas, ganaste *¥${cantidad.toLocaleString()} ${currency}*.`,
         `Te infiltras en el templo del Vacío y recuperas el cristal del equilibrio, ganaste *¥${cantidad.toLocaleString()} ${currency}*.`,
         `Resuelves el acertijo de la cripta eterna y obtienes un tesoro legendario, ganaste *¥${cantidad.toLocaleString()} ${currency}*.`
-      ];
-      message = pickRandom(successMessages);
+      ]);
     } else if (rand < 0.7) {
       if (usingWeapon) {
         user.weapons.espada.durability -= durabilityConsumed;
-        if (user.weapons.espada.durability <= 10) {
-          delete user.weapons.espada;
-        }
-        global.db.data.chats[msg.chat].users[msg.sender].weapons = user.weapons;
+        if (user.weapons.espada.durability <= 10) delete user.weapons.espada;
       }
       cantidad = Math.floor(Math.random() * (11000 - 9000 + 1)) + 9000;
       const total = (user.coins || 0) + (user.bank || 0);
       if (total >= cantidad) {
         if (user.coins >= cantidad) {
           user.coins -= cantidad;
-          global.db.data.chats[msg.chat].users[msg.sender].coins = user.coins;
         } else {
           const restante = cantidad - user.coins;
           user.coins = 0;
           user.bank -= restante;
-          global.db.data.chats[msg.chat].users[msg.sender].coins = 0;
-          global.db.data.chats[msg.chat].users[msg.sender].bank = user.bank;
         }
       } else {
         cantidad = total;
         user.coins = 0;
         user.bank = 0;
-        global.db.data.chats[msg.chat].users[msg.sender].coins = 0;
-        global.db.data.chats[msg.chat].users[msg.sender].bank = 0;
       }
       user.health -= salud;
       if (user.health < 0) user.health = 0;
-      global.db.data.chats[msg.chat].users[msg.sender].health = user.health;      
-      const failMessages = [
+      message = pickRandom([
         `El hechicero oscuro te lanzó una maldición y huyes perdiendo *¥${cantidad.toLocaleString()} ${currency}*.`,
         `Te extravías en la jungla de Zarkelia y unos bandidos te asaltan, pierdes *¥${cantidad.toLocaleString()} ${currency}*.`,
         `Un basilisco te embiste y escapas herido sin botín, pierdes *¥${cantidad.toLocaleString()} ${currency}*.`,
@@ -117,19 +115,20 @@ export default {
         `Pierdes orientación entre los portales del bosque espejo y terminas sin recompensa, pierdes *¥${cantidad.toLocaleString()} ${currency}*.`,
         `Un grupo de trolls te embosca y te quitan tus pertenencias, pierdes *¥${cantidad.toLocaleString()} ${currency}*.`,
         `El dragón anciano te derrota y te obliga a huir, pierdes *¥${cantidad.toLocaleString()} ${currency}*.`
-      ];
-      message = pickRandom(failMessages);
+      ]);
     } else {
-      const neutralMessages = [
+      message = pickRandom([
         `Exploras ruinas antiguas y aprendes secretos ocultos.`,
         `Sigues la pista de un espectro pero desaparece entre la niebla.`,
         `Acompañas a una princesa por los desiertos de Thaloria sin contratiempos.`,
         `Recorres un bosque encantado y descubres nuevas rutas.`,
         `Visitas una aldea remota y escuchas relatos de viejas batallas.`
-      ];
-      message = pickRandom(neutralMessages);
+      ]);
     }    
-    global.db.data.chats[msg.chat].users[msg.sender].lastadventure = Date.now( + 20 * 60 * 1000);
+    
+    // CORRECCIÓN AQUÍ: Date.now() + 20 minutos
+    user.lastadventure = Date.now() + (20 * 60 * 1000);
+    
     await sock.sendMessage(msg.chat, { text: `「✿」 ${message}` }, { quoted: msg });
   }
 };
@@ -145,3 +144,4 @@ function msToTime(duration) {
 function pickRandom(list) {
   return list[Math.floor(Math.random() * list.length)];
 }
+
