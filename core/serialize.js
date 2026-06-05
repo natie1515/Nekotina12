@@ -1,9 +1,7 @@
-import { proto, delay, areJidsSameUser, generateWAMessage, generateWAMessageFromContent, prepareWAMessageMedia, downloadContentFromMessage, getContentType, getDevice, extractMessageContent, jidDecode } from 'baileys';
+import { proto, delay, areJidsSameUser, generateWAMessage, generateWAMessageFromContent, generateWAMessageContent, prepareWAMessageMedia, downloadContentFromMessage, getContentType, getDevice, extractMessageContent, jidDecode } from 'baileys';
 import fs from 'fs';
 import axios from 'axios';
-import moment from 'moment-timezone';
 import crypto from 'crypto';
-import fetch from 'node-fetch';
 import FileType from 'file-type';
 import path from 'path';
 import exif from './exif.js';
@@ -147,7 +145,7 @@ async function resolveJidAsync(raw, sock, groupJid) {
   const lidBase = norm.split('@')[0];
   let meta = getCachedMeta(groupJid);
   if (!meta) {
-    try { meta = await sock.groupMetadata(groupJid); setCachedMeta(groupJid, meta); }
+    try { meta = await sock.groupMetadata(groupJid); if (meta?.participants) setCachedMeta(groupJid, meta); else meta = null; }
     catch { return norm; }
   }
   for (const p of meta.participants ?? []) {
@@ -161,8 +159,8 @@ async function resolveJidAsync(raw, sock, groupJid) {
 }
 
 function patchGroupMetadata(sock) {
-  if (sock._groupMetadataPatched) return;
-  sock._groupMetadataPatched = true;
+  if (sock.groupMetadataPatched) return;
+  sock.groupMetadataPatched = true;
   const orig = sock.groupMetadata.bind(sock);
   sock.groupMetadata = async (jid) => {
     try {
@@ -177,9 +175,6 @@ function patchGroupMetadata(sock) {
 }
 
 export { normalizeJid, resolveParticipantJid, resolveJidSync, patchGroupMetadata, getCachedMeta, setCachedMeta, deleteCachedMeta };
-export function getRandom(ext) {
-  return `${Math.floor(Math.random() * 10000)}${ext}`;
-}
 
 export async function getBuffer(url, options = {}) {
   try {
@@ -188,43 +183,37 @@ export async function getBuffer(url, options = {}) {
   } catch (e) { throw e; }
 }
 
+export async function getFile(PATH, saveToFile = false) {
+  let filename;
+  let data;
+  if (Buffer.isBuffer(PATH)) {
+    data = PATH;
+  } else if (PATH instanceof ArrayBuffer) {
+    data = Buffer.from(PATH);
+  } else if (/^data:.*?\/.*?;base64,/i.test(PATH)) {
+    data = Buffer.from(PATH.split`,`[1], 'base64');
+  } else if (/^https?:\/\//.test(PATH)) {
+    data = await getBuffer(PATH);
+  } else if (fs.existsSync(PATH)) {
+    filename = PATH;
+    data = fs.readFileSync(PATH);
+  } else {
+    throw new TypeError(`getFile: input invalido — ${typeof PATH}`);
+  }
+  if (!Buffer.isBuffer(data)) throw new TypeError('getFile: el resultado no es un Buffer');
+  const type = (await FileType.fromBuffer(data)) || { mime: 'application/octet-stream', ext: '.bin' };
+  if (saveToFile && !filename) {
+    filename = path.join(__dirname, '../tmp/' + Date.now() + '.' + type.ext);
+    await fs.promises.writeFile(filename, data);
+  }
+  return { filename, ...type, data, deleteFile: () => filename ? fs.promises.unlink(filename) : Promise.resolve() };
+}
+
 export async function fetchJson(url, options) {
   try {
     const res = await axios({ method: 'GET', url, headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.69 Safari/537.36' }, ...options });
     return res.data;
   } catch (err) { return err; }
-}
-
-export function clockString(ms) {
-  const h = isNaN(ms) ? '--' : Math.floor(ms / 3600000);
-  const m = isNaN(ms) ? '--' : Math.floor(ms / 60000) % 60;
-  const s = isNaN(ms) ? '--' : Math.floor(ms / 1000) % 60;
-  return [h, m, s].map((v) => v.toString().padStart(2, 0)).join(':');
-}
-
-export async function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-export function isUrl(url) {
-  return url.match(new RegExp(/https?:\/\/(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_+.~#?&/=]*)/, 'gi'));
-}
-
-export function getTime(format, date) {
-  return date ? moment(date).locale('id').format(format) : moment.tz('America/Bogota').locale('id').format(format);
-}
-
-export function formatDate(n, locale = 'id') {
-  const d = new Date(n);
-  return d.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' });
-}
-
-export function pickRandom(list) {
-  return list[Math.floor(list.length * Math.random())];
-}
-
-export function parseMention(text = '') {
-  return [...text.matchAll(/@([0-9]{5,16}|0)/g)].map((v) => v[1] + '@s.whatsapp.net');
 }
 
 export async function smsg(sock, msg, store) {
@@ -393,17 +382,6 @@ export async function smsg(sock, msg, store) {
     }
   };
 
-  if (!sock.getFile) {
-  sock.getFile = async (PATH, saveToFile = false) => {
-    let res, filename;
-    const data = Buffer.isBuffer(PATH) ? PATH : PATH instanceof ArrayBuffer ? PATH.toBuffer() : /^data:.*?\/.*?;base64,/i.test(PATH) ? Buffer.from(PATH.split`,`[1], 'base64') : /^https?:\/\//.test(PATH) ? await (res = await fetch(PATH)).buffer() : fs.existsSync(PATH) ? ((filename = PATH), fs.readFileSync(PATH)) : typeof PATH === 'string' ? Buffer.from(PATH) : Buffer.alloc(0);
-    if (!Buffer.isBuffer(data)) throw new TypeError('Result is not a buffer');
-    const type = (await FileType.fromBuffer(data)) || { mime: 'application/octet-stream', ext: '.bin' };
-    if (data && saveToFile && !filename) ((filename = path.join(__dirname, '../tmp/' + new Date() * 1 + '.' + type.ext)), await fs.promises.writeFile(filename, data));
-    return { res, filename, ...type, data, deleteFile() { return filename && fs.promises.unlink(filename); } };
-  };
-  }
-
   if (!sock.parseMention) {
   sock.parseMention = async (text) => {
     return [...text.matchAll(/@([0-9]{5,16}|0)/g)].map((v) => v[1] + '@s.whatsapp.net');
@@ -528,5 +506,6 @@ export async function smsg(sock, msg, store) {
     return Buffer.isBuffer(text) ? sock.sendFile(jid, text, 'file', '', quoted, false, options) : sock.sendMessage(jid, { ...options, text }, { quoted, ...options });
   };
   }
+  
   return msg;
 }
