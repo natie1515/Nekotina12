@@ -137,24 +137,22 @@ let isRestarting = false;
 const retriesLimit = 15;
 async function warmupGroups(sock) {
   try {
-    const allChats = Object.values(global.db.data.chats);
-    const chatIds = allChats.map((c) => c.id).filter((id) => id.endsWith('@g.us')).slice(0, 50);
-    if (!chatIds.length) return;
-    console.log(chalk.gray(`[ ✿ ] Precargando metadata de ${chatIds.length} grupos...`));
-    const t = Date.now();
-    const batches = [];
-    for (let i = 0; i < chatIds.length; i += 10) batches.push(chatIds.slice(i, i + 10));
-    await Promise.allSettled(batches.map((batch) =>
-      Promise.allSettled(batch.map(async (id) => {
-        try {
-          const meta = await sock.groupMetadata(id);
-          if (meta) setCachedMeta(id, meta);
-        } catch {}
-      }))
-    ));
-    console.log(chalk.gray(`[ ✿ ] Warmup completado en ${Date.now() - t}ms`));
+    const allChats = Object.values(global.db.data.chats)
+    const chatIds = allChats.map(c => c.id).filter(id => typeof id === 'string' && id.endsWith('@g.us')).slice(0, 50)
+    if (!chatIds.length) return
+    console.log(chalk.gray(`[ ✿ ] Precargando metadata de ${chatIds.length} grupos...`))
+    const t = Date.now()
+    const batches = []
+    for (let i = 0; i < chatIds.length; i += 10) {
+      batches.push(chatIds.slice(i, i + 10))
+    }
+    await Promise.allSettled(batches.map(batch => Promise.allSettled(batch.map(async id => {
+    try {
+    const meta = await sock.groupMetadata(id)
+    if (meta) setCachedMeta(id, meta) } catch {}}))))
+    console.log(chalk.gray(`[ ✿ ] Warmup completado en ${Date.now() - t}ms`))
   } catch (e) {
-    console.log(chalk.gray(`[ ✿ ] warmupGroups → ${e?.message || e}`));
+    console.log(chalk.gray(`[ ✿ ] warmupGroups → ${e?.message || e}`))
   }
 }
 
@@ -230,7 +228,7 @@ export async function startBot() {
   try { await events(sock, null); } catch (err) { console.log(chalk.gray(`[ EVENT ERROR ] → ${err}`)); }
 
   sock.ev.on("connection.update", async (update) => {
-    const { qr, connection, lastDisconnect, isNewLogin } = update;
+    const { qr, connection, lastDisconnect, isNewLogin, receivedPendingNotifications } = update;
     if (qr != 0 && qr != undefined || methodCodeQR) {
       if (opcion == '1' || methodCodeQR) {
         console.log(chalk.green.bold("[ ✿ ] Escanea este código QR"));
@@ -249,6 +247,10 @@ export async function startBot() {
       }
     }
     if (isNewLogin) log.info("Nuevo dispositivo detectado");
+    if (receivedPendingNotifications === true) {
+      log.warn("Por favor espere aproximadamente 1 minuto...");
+      sock.ev.flush();
+    }
     if (connection === "close") {
       const reason = lastDisconnect?.error?.output?.statusCode || 0;
       if ([DisconnectReason.loggedOut, DisconnectReason.forbidden, DisconnectReason.multideviceMismatch].includes(reason)) {
@@ -256,8 +258,7 @@ export async function startBot() {
         botReady = false;
         isRestarting = false;
         clearSession();
-        setTimeout(startBot, 3000);
-        return;
+        process.exit(1);
       }
       if (reason === DisconnectReason.connectionReplaced) {
         log.warn("Conexión reemplazada — cerrá la otra sesión antes de reconectar.");
@@ -271,8 +272,7 @@ export async function startBot() {
         reconexion = 0;
         isRestarting = false;
         clearSession();
-        setTimeout(startBot, 3000);
-        return;
+        process.exit(1);
       }
       const delay = Math.min(3000 * reconexion, 30000);
       const reasonMessages = {
