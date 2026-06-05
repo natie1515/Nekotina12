@@ -162,6 +162,7 @@ export default async (sock, msg) => {
   if (cmdData.isAdmin && !isAdmins) return sock.reply(msg.chat, '《✧》 Este comando solo puede ser ejecutado por los Administradores del Grupo.', msg);
   if (cmdData.botAdmin && !isBotAdmins) return sock.reply(msg.chat, '《✧》 Este comando solo puede ser ejecutado si el Socket es Administrador del Grupo.', msg);
   try {
+    await sock.sendPresenceUpdate('composing', msg.chat);
     await sock.readMessages([msg.key]);
     user.usedcommands = (user.usedcommands || 0) + 1;
     user.exp = (user.exp || 0) + Math.floor(Math.random() * 100);
